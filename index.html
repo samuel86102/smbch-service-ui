@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教會事工輪值表</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+      :root {
+        --primary-color: #2c3e50; /* 深藍色 */
+        --accent-color: #3498db;  /* 亮藍色 */
+        --bg-color: #f4f7f9;
+        --card-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      }
+
+      body { background-color: var(--bg-color); padding-bottom: 90px; font-family: -apple-system, "Microsoft JhengHei", sans-serif; }
+      
+      /* 頂部選單 */
+      .sticky-top-custom { 
+        position: sticky; top: 0; z-index: 1020; 
+        background: rgba(255, 255, 255, 0.95); 
+        backdrop-filter: blur(10px); 
+        padding: 15px 0; border-bottom: 2px solid var(--primary-color); 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      }
+      .filter-row { background: #fff; padding: 10px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #eee; }
+
+      /* 響應式佈局 */
+      .card-grid { display: flex; flex-wrap: wrap; margin: 0 -8px; }
+      .card-wrapper { padding: 8px; width: 100%; }
+      @media (min-width: 768px) { .card-wrapper { width: 50%; } }
+      @media (min-width: 1200px) { .card-wrapper { width: 33.33%; } }
+
+      /* 卡片樣式 - 修改為 Flex 以解決內容重疊問題 */
+      .card { 
+        height: 100%; border: none; border-radius: 12px; 
+        background: #fff; box-shadow: var(--card-shadow);
+        transition: transform 0.2s; 
+        display: flex; flex-direction: column; /* 關鍵修改 */
+      }
+      .card:hover { transform: translateY(-3px); }
+      .card-body-custom {
+        padding: 1rem;
+        flex: 1; /* 讓內容區佔滿剩餘空間 */
+      }
+
+      /* 本週標記 */
+      .card.next-up { border: 2px solid var(--accent-color); position: relative; overflow: hidden; }
+      .card.next-up::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: var(--accent-color);
+      }
+      .next-badge { background: var(--accent-color); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-left: 8px; vertical-align: middle; }
+      .date-badge { background: var(--primary-color); color: white; padding: 5px 12px; border-radius: 6px; font-weight: bold; display: inline-block; }
+
+      /* 內容排版 */
+      .role-label { color: #95a5a6; font-size: 0.8rem; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+      .role-value { 
+        font-size: 0.95rem; font-weight: 600; color: #2c3e50; 
+        margin-bottom: 12px; border-left: 3px solid #dee2e6; padding-left: 10px; 
+        word-break: break-word; /* 防止長文字破版 */
+      }
+      .text-danger.role-value { border-left-color: #e74c3c; color: #e74c3c; }
+
+      /* 按鈕容器 - 確保按鈕在底部 */
+      .card-footer-custom {
+        padding: 10px 1rem;
+        background: transparent;
+        margin-top: auto; /* 強制推到底部 */
+        text-align: right;
+        border-top: 1px dashed #eee;
+      }
+
+      .btn-copy {
+        font-size: 0.8rem;
+        padding: 6px 16px;
+        border-radius: 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex; align-items: center; gap: 5px;
+      }
+      .btn-copy:hover { background-color: #1a252f; transform: scale(1.05); }
+      .btn-copy:active { transform: scale(0.95); }
+
+      /* Tab 樣式 */
+      .nav-pills .nav-link { color: var(--primary-color); border: 1px solid #ddd; margin: 0 4px; background: #fff; font-size: 0.9rem; }
+      .nav-pills .nav-link.active { background-color: var(--primary-color); border-color: var(--primary-color); box-shadow: 0 4px 6px rgba(44, 62, 80, 0.3); }
+
+      .fab-btn { 
+        position: fixed; bottom: 25px; right: 25px; z-index: 1030; 
+        width: 56px; height: 56px; border-radius: 50%; 
+        background-color: var(--accent-color); color: white; border: none; 
+        box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4); display: none; 
+        align-items: center; justify-content: center; font-size: 24px; 
+        transition: transform 0.2s;
+      }
+      .fab-btn:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+      <div class="sticky-top-custom">
+        <h5 class="text-center mb-3 fw-bold" style="color:var(--primary-color)">教會事工輪值表</h5>
+        
+        <div class="filter-row row gx-2">
+          <div class="col-4"><select id="f-q" class="form-select form-select-sm" onchange="applyFilters()"><option value="">季度</option></select></div>
+          <div class="col-4"><select id="f-m" class="form-select form-select-sm" onchange="applyFilters()"><option value="">月份</option>
+            <script>for(let i=1;i<=12;i++) document.write(`<option value="${i}">${i}月</option>`);</script>
+          </select></div>
+          <div class="col-4"><select id="f-d" class="form-select form-select-sm" onchange="applyFilters()"><option value="">星期</option><option value="六">週六</option><option value="日">週日</option></select></div>
+        </div>
+
+        <ul class="nav nav-pills nav-fill" id="myTab">
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#service" onclick="delayedJump()">✝️ 崇拜</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#band" onclick="delayedJump()">🎸 敬拜</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sound" onclick="delayedJump()">🎚️ 音控</button></li>
+        </ul>
+      </div>
+
+      <div id="loading" class="text-center mt-5" style="color: #999;">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <p class="mt-2 small">正在同步最新資料...</p>
+      </div>
+
+      <div class="tab-content mt-3" id="content-area" style="display:none; padding-bottom: 20px;">
+        <div class="tab-pane fade show active" id="service"></div>
+        <div class="tab-pane fade" id="band"></div>
+        <div class="tab-pane fade" id="sound"></div>
+      </div>
+
+      <button class="fab-btn" id="fab" onclick="jumpToCurrent()" title="跳至本週">📅</button>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // ★★★ 貼上你的 CSV 網址 ★★★
+      const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSm1QyFJw29aaCzTeE71Arv4Taa6Kxfv82TD2IxKPinWsdGZnrQkOlCh8Zpv_tHvyYstXWQTSIJitG0/pub?gid=723640444&single=true&output=csv';
+
+      let allRawData = []; 
+      let nextServiceIds = { service: null, band: null, sound: null };
+
+      window.onload = function() {
+        if(!CSV_URL.startsWith("http")) return alert("請設定 CSV 網址");
+        Papa.parse(CSV_URL, {
+          download: true,
+          complete: function(results) {
+            // 簡單檢查一下數據是否有效，避免空行報錯
+            if(results.data && results.data.length > 2) {
+              allRawData = results.data.slice(2).filter(r => r[1]); // 濾掉沒有日期的空行
+              setupQuarterFilter(allRawData);
+              applyFilters();
+            } else {
+              alert("讀取資料失敗，請檢查 CSV 格式");
+            }
+          },
+          error: function() { alert("無法連結至 Google Sheet"); }
+        });
+      };
+
+      function setupQuarterFilter(rows) {
+        const qSelect = document.getElementById('f-q');
+        // 使用 Set 去重，確保季度不重複
+        const quarters = [...new Set(rows.map(r => r[0]).filter(q => q))];
+        quarters.forEach(q => {
+          let opt = document.createElement('option');
+          opt.value = q; opt.innerText = q;
+          qSelect.appendChild(opt);
+        });
+        // 預設選中最後一個季度 (通常是最新的)
+        // if(quarters.length > 0) qSelect.value = quarters[quarters.length-1];
+      }
+
+      function applyFilters() {
+        const qVal = document.getElementById('f-q').value;
+        const mVal = document.getElementById('f-m').value;
+        const dVal = document.getElementById('f-d').value;
+        
+        const filtered = allRawData.filter(row => {
+          if (!row[1]) return false;
+          // 模糊比對增強容錯性
+          const matchQ = !qVal || row[0] === qVal;
+          const matchM = !mVal || parseInt(row[1].split('/')[0]) == parseInt(mVal);
+          const matchD = !dVal || row[2].includes(dVal);
+          return matchQ && matchM && matchD;
+        });
+        renderContent(filtered);
+      }
+
+      function renderContent(data) {
+        let htmls = { service: '<div class="card-grid">', band: '<div class="card-grid">', sound: '<div class="card-grid">' };
+        const today = new Date(); today.setHours(0,0,0,0);
+        let foundNext = false;
+
+        data.forEach((row, index) => {
+          // --- 日期處理 ---
+          const dateParts = row[1].split('/');
+          let rowDate = new Date(today.getFullYear(), dateParts[0]-1, dateParts[1]);
+          if (today.getMonth() == 11 && parseInt(dateParts[0]) == 1) rowDate.setFullYear(today.getFullYear() + 1);
+          else if (today.getMonth() == 0 && parseInt(dateParts[0]) == 12) rowDate.setFullYear(today.getFullYear() - 1);
+          
+          // --- 本週判斷 ---
+          let isNext = false;
+          if (!foundNext && rowDate >= today) { isNext = true; foundNext = true; }
+          const uId = 'idx-' + index;
+          if(isNext) { nextServiceIds.service='s-'+uId; nextServiceIds.band='b-'+uId; nextServiceIds.sound='v-'+uId; }
+
+          // --- 卡片標頭 ---
+          const header = `<div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+            <div><span class="date-badge">${row[1]}</span> <span class="fw-bold ms-1" style="font-size:0.9rem">${row[2]}</span>${isNext ? '<span class="next-badge">本週</span>' : ''}</div>
+            <small class="text-muted" style="font-size:0.75rem">${row[0]}</small>
+          </div>`;
+
+          // --- 這裡修正了：參數傳遞方式 ---
+          const cardStart = `<div class="card-wrapper"><div class="card ${isNext?'next-up':''}" id="PREFIX-${uId}"><div class="card-body-custom">${header}<div class="row g-2">`;
+          
+          // ★★★ 關鍵修正：使用 encodeURIComponent 避免引號破壞 HTML ★★★
+          const cardEnd = (fnName, ...args) => {
+              const safeArgs = args.map(a => 
+                  `decodeURIComponent('${encodeURIComponent((a || '').toString())}')`
+              ).join(","); 
+              return `</div></div><div class="card-footer-custom"><button class="btn-copy" onclick="${fnName}(${safeArgs})">✨ 複製資訊</button></div></div></div>`;
+          };
+
+          // 1. 崇拜
+          htmls.service += cardStart.replace('PREFIX', 's') + 
+            `${c('講員', row[6])}${c('講題', row[7], true)}${c('主席', row[5])}${c('會前禱告', row[3])}${c('聖餐', row[22])}${c('招待', row[23])}${c('備註', row[24], true, 'text-danger')}` + 
+            cardEnd('copyService', row[1], row[2], row[6], row[7], row[5]);
+
+          // 2. 敬拜團
+          if(row[8] || row[13]) {
+            htmls.band += cardStart.replace('PREFIX', 'b') + 
+              `${c('主領', row[8], false, 'text-primary')}${c('Vocal', [row[9],row[10],row[11],row[12]].filter(x=>x).join(', '), true)}
+               ${c('鋼琴', row[13])}${c('KB', row[14])}${c('吉他', (row[15]||'')+' '+(row[16]||''))}${c('Bass', row[17])}${c('鼓', row[18])}` + 
+               cardEnd('copyBand', row[1], row[8], row[13], row[18]);
+          }
+
+          // 3. 音控
+          if(row[20] || row[21]) {
+            htmls.sound += cardStart.replace('PREFIX', 'v') + 
+              `${c('音控', row[20])}${c('PPT', row[21])}` + 
+              cardEnd('copySound', row[1], row[20], row[21]);
+          }
+        });
+
+        // --- 渲染 HTML ---
+        for(let key in htmls) document.getElementById(key).innerHTML = htmls[key] + '</div>';
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content-area').style.display = 'block';
+        if(foundNext) document.getElementById('fab').style.display = 'flex';
+        if(!document.getElementById('f-q').value && !document.getElementById('f-m').value) setTimeout(jumpToCurrent, 500);
+      }
+      function c(l, v, f = false, vc = '') {
+        if (!v || v.toString().trim() === '') return ''; 
+        return `<div class="${f ? 'col-12' : 'col-6'}"><p class="role-label">${l}</p><p class="role-value ${vc}">${v}</p></div>`;
+      }
+
+      // --- 剪貼簿邏輯 (相容性與修復) ---
+      
+      async function execCopy(text) {
+        // 優先嘗試現代 API (手機支援度較好)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(text);
+                alert("✅ 已複製到剪貼簿！");
+                return;
+            } catch (err) {
+                console.error('Clipboard API failed, falling back...', err);
+            }
+        }
+
+        // 備用方案：傳統 execCommand (針對 HTTP 環境或舊瀏覽器)
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // 避免手機上跳出鍵盤
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.setAttribute('readonly', '');
+        
+        document.body.appendChild(textArea);
+        textArea.select();
+        textArea.setSelectionRange(0, 99999); // iOS fix
+
+        try {
+          const success = document.execCommand('copy');
+          if(success) alert("✅ 已複製到剪貼簿 (Fallback)！");
+          else throw new Error("Copy failed");
+        } catch (err) {
+          prompt("複製失敗，請手動複製以下內容：", text);
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
+
+      function copyService(date, day, speaker, topic, chair) {
+        execCopy(`🌟 【崇拜服事提醒】\n日期：${date} (${day})\n主席：${chair}\n講員：${speaker}\n講題：${topic}\n\n請準時參加會前禱告，謝謝！`);
+      }
+      function copyBand(date, leader, piano, drums) {
+        execCopy(`🎸 【敬拜團服事】\n日期：${date}\n主領：${leader}\n鋼琴：${piano}\n鼓手：${drums}\n\n請預備心服事！`);
+      }
+      function copySound(date, sound, ppt) {
+        execCopy(`🎚️ 【音控服事】\n日期：${date}\n音控：${sound}\nPPT：${ppt}\n\n請提早到場進行音檢。`);
+      }
+
+      // --- 滾動定位修復 ---
+      function jumpToCurrent() {
+        const activeTab = document.querySelector('.tab-pane.active').id;
+        const tid = nextServiceIds[activeTab];
+        if (tid) {
+          const el = document.getElementById(tid);
+          if(el) {
+            // 使用 scrollIntoView 配合 block: center 確保不會被 header 擋住
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            
+            // 視覺回饋：閃爍一下
+            el.style.transition = "background-color 0.5s";
+            el.style.backgroundColor = "#eaf2f8";
+            setTimeout(() => { el.style.backgroundColor = "#fff"; }, 1000);
+          }
+        } else {
+            // 如果該 Tab 沒有本週數據（例如篩選掉了）
+            // alert("本頁面沒有本週資料");
+        }
+      }
+      function delayedJump() { setTimeout(jumpToCurrent, 300); }
+    </script>
+</body>
+</html>
