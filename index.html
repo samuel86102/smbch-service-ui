@@ -123,9 +123,9 @@
         </div>
 
         <ul class="nav nav-pills nav-fill" id="myTab">
-          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#service" onclick="delayedJump()">✝️ 崇拜</button></li>
-          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#band" onclick="delayedJump()">🎸 敬拜</button></li>
-          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sound" onclick="delayedJump()">🎚️ 音控</button></li>
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#service" onclick="applyFilters(); delayedJump()">✝️ 崇拜</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#band" onclick="applyFilters(); delayedJump()">🎸 敬拜</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#sound" onclick="applyFilters(); delayedJump()">🎚️ 音控</button></li>
         </ul>
       </div>
 
@@ -197,7 +197,7 @@
           const matchQ = !qVal || row[0] === qVal;
           const matchM = !mVal || parseInt(row[1].split('/')[0]) == parseInt(mVal);
           const matchD = !dVal || row[2].includes(dVal);
-          // 新增人名搜尋：檢查當前活躍Tab的相關欄位
+          // 人名搜尋：檢查活躍Tab的相關欄位
           const matchName = !nameVal || searchNamesInRow(row, nameVal, activeTab);
           return matchQ && matchM && matchD && matchName;
         });
@@ -225,10 +225,8 @@
       function renderContent(data, highlightQuery = '', activeTab) {
         let htmls = { service: '<div class="card-grid">', band: '<div class="card-grid">', sound: '<div class="card-grid">' };
         const today = new Date(); today.setHours(0,0,0,0);
-        let foundNext = false;
-
-        // 重新計算 nextServiceIds，根據過濾後的數據
         nextServiceIds = { service: null, band: null, sound: null };
+        let foundNext = false;
 
         data.forEach((row, index) => {
           // --- 日期處理 ---
@@ -252,59 +250,60 @@
           // --- 這裡修正了：參數傳遞方式 ---
           const cardStart = `<div class="card-wrapper"><div class="card ${isNext?'next-up':''}" id="PREFIX-${uId}"><div class="card-body-custom">${header}<div class="row g-2">`;
           
-          // ★★★ 關鍵修正：使用 encodeURIComponent 避免引號破壞 HTML ★★★
-          const cardEnd = (fnName, ...args) => {
-              const safeArgs = args.map(a => 
-                  `decodeURIComponent('${encodeURIComponent((a || '').toString())}')`
-              ).join(","); 
-              return `</div></div><div class="card-footer-custom"><button class="btn-copy" onclick="${fnName}(${safeArgs})">✨ 複製資訊</button></div></div></div>`;
+          // ★★★ 修改：統一複製按鈕為 copyCard，傳遞 read 索引 ★★★
+          function cardEnd(prefix, cardId) {
+              return `</div></div><div class="card-footer-custom"><button class="btn-copy" onclick="copyCard('${cardId}')">✨ 複製資訊</button></div></div></div>`;
           };
 
           // 1. 崇拜
-          htmls.service += cardStart.replace('PREFIX', 's') + 
-            `${c('講員', row[6], false, '', highlightQuery)}${c('講題', row[7], true, 'text-danger', highlightQuery)}${c('主席', row[5], false, '', highlightQuery)}${c('會前禱告', row[3], false, '', highlightQuery)}${c('聖餐', row[22], false, '', highlightQuery)}${c('招待', row[23], false, '', highlightQuery)}${c('備註', row[24], true, '', highlightQuery)}` + 
-            cardEnd('copyService', row[1], row[2], row[6], row[7], row[5]);
+          if(activeTab === 'service' || !highlightQuery) {
+            htmls.service += cardStart.replace('PREFIX', 's') + 
+              `${c('講員', row[6], false, '', highlightQuery)}${c('講題', row[7], true, 'text-danger', highlightQuery)}${c('主席', row[5], false, '', highlightQuery)}${c('會前禱告', row[3], false, '', highlightQuery)}${c('聖餐', row[22], false, '', highlightQuery)}${c('招待', row[23], false, '', highlightQuery)}${c('備註', row[24], true, '', highlightQuery)}` + 
+              cardEnd('s-', 's-'+uId);
+          } else {
+            htmls.service += '<div class="no-results">請切換到此Tab進行搜尋</div>';
+          }
 
           // 2. 敬拜團
-          if(row[8] || row[13]) {
-            htmls.band += cardStart.replace('PREFIX', 'b') + 
-              `${c('主領', row[8], false, 'text-primary', highlightQuery)}${c('Vocal', [row[9],row[10],row[11],row[12]].filter(x=>x).join(', '), true, '', highlightQuery)}
-               ${c('鋼琴', row[13], false, '', highlightQuery)}${c('KB', row[14], false, '', highlightQuery)}${c('吉他', (row[15]||'')+' '+(row[16]||''), false, '', highlightQuery)}${c('Bass', row[17], false, '', highlightQuery)}${c('鼓', row[18], false, '', highlightQuery)}` + 
-               cardEnd('copyBand', row[1], row[8], row[13], row[18]);
+          if(activeTab === 'band' || !highlightQuery) {
+            if(row[8] || row[13]) {
+              htmls.band += cardStart.replace('PREFIX', 'b') + 
+                `${c('主領', row[8], false, 'text-primary', highlightQuery)}${c('Vocal', [row[9],row[10],row[11],row[12]].filter(x=>x).join(', '), true, '', highlightQuery)}
+                 ${c('鋼琴', row[13], false, '', highlightQuery)}${c('KB', row[14], false, '', highlightQuery)}${c('吉他', (row[15]||'')+' '+(row[16]||''), false, '', highlightQuery)}${c('Bass', row[17], false, '', highlightQuery)}${c('鼓', row[18], false, '', highlightQuery)}` + 
+                 cardEnd('b-', 'b-'+uId);
+            } else {
+              htmls.band += '<div class="no-results">此日期無敬拜團服事</div>';
+            }
+          } else {
+            htmls.band += '<div class="no-results">請切換到此Tab進行搜尋</div>';
           }
 
           // 3. 音控
-          if(row[20] || row[21]) {
-            htmls.sound += cardStart.replace('PREFIX', 'v') + 
-              `${c('音控', row[20], false, '', highlightQuery)}${c('PPT', row[21], false, '', highlightQuery)}` + 
-              cardEnd('copySound', row[1], row[20], row[21]);
+          if(activeTab === 'sound' || !highlightQuery) {
+            if(row[20] || row[21]) {
+              htmls.sound += cardStart.replace('PREFIX', 'v') + 
+                `${c('音控', row[20], false, '', highlightQuery)}${c('PPT', row[21], false, '', highlightQuery)}` + 
+                cardEnd('v-', 'v-'+uId);
+            } else {
+              htmls.sound += '<div class="no-results">此日期無音控服事</div>';
+            }
+          } else {
+            htmls.sound += '<div class="no-results">請切換到此Tab進行搜尋</div>';
           }
         });
 
-        // --- 根據是否有搜尋詞決定渲染方式 ---
-        if (highlightQuery) {
-          // 有搜尋詞時，只渲染活躍Tab，其他Tab顯示無結果訊息
-          for (let key in htmls) {
-            if (key === activeTab) {
-              document.getElementById(key).innerHTML = htmls[key] + '</div>';
-            } else {
-              document.getElementById(key).innerHTML = '<div class="no-results">請切換到此Tab進行搜尋</div>';
-            }
-          }
-        } else {
-          // 無搜尋詞時，正常渲染所有Tab
-          for(let key in htmls) document.getElementById(key).innerHTML = htmls[key] + '</div>';
-        }
+        // --- 渲染 HTML ---
+        for(let key in htmls) document.getElementById(key).innerHTML = htmls[key] + '</div>';
         
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content-area').style.display = 'block';
         if(foundNext) document.getElementById('fab').style.display = 'flex';
-        if(!document.getElementById('f-q').value && !document.getElementById('f-m').value) setTimeout(jumpToCurrent, 500);
+        if(!document.getElementById('f-q').value && !document.getElementById('f-m').value && !highlightQuery) setTimeout(jumpToCurrent, 500);
       }
 
       // 修改c函數，加入高亮功能，但僅適用於非text-danger的vc（因為備註本就是danger，並且highlight看起來有衝突，所以取消備註的高亮）
       function c(l, v, f = false, vc = '', highlightQuery = '') {
-        if (!v || v.toString().trim() === '') return ''; 
+        if (!v || v.toString().trim() === '') return '';
         let valueHtml = vc === 'text-danger' && l === '備註' ? v : (highlightQuery && vc !== 'text-danger' ? highlightText(v, highlightQuery) : v);
         return `<div class="${f ? 'col-12' : 'col-6'}"><p class="role-label">${l}</p><p class="role-value ${vc}">${valueHtml}</p></div>`;
       }
@@ -323,6 +322,30 @@
         }
         result += text.substring(lastIndex);
         return result;
+      }
+
+      // --- 通用複製函數：提取卡片內的完整資訊 ---
+      function copyCard(cardId) {
+        const el = document.getElementById(cardId);
+        if (!el) return alert("卡片未找到");
+        
+        // 提取標頭信息
+        const dateBadge = el.querySelector('.date-badge');
+        const day = el.querySelector('.fw-bold');
+        const quarter = el.querySelector('small.text-muted');
+        const headerText = `${dateBadge ? dateBadge.textContent.trim() : ''} ${day ? day.textContent.trim() : ''} ${quarter ? quarter.textContent.trim() : ''}`;
+
+        // 提取所有角色-值的對
+        const roles = el.querySelectorAll('.role-label, .role-value');
+        let rolesText = '';
+        for (let i = 0; i < roles.length; i += 2) {
+          const label = roles[i] ? roles[i].textContent.trim() : '';
+          const value = roles[i + 1] ? roles[i + 1].textContent.trim() : '';
+          if (label && value) rolesText += `${label}：${value}\n`;
+        }
+
+        const fullText = `🌟 【服事資訊】\n${headerText}\n\n${rolesText}\n請預備心服事！`;
+        execCopy(fullText);
       }
 
       // --- 剪貼簿邏輯 (相容性與修復) ---
@@ -361,16 +384,6 @@
         } finally {
           document.body.removeChild(textArea);
         }
-      }
-
-      function copyService(date, day, speaker, topic, chair) {
-        execCopy(`🌟 【崇拜服事提醒】\n日期：${date} (${day})\n主席：${chair}\n講員：${speaker}\n講題：${topic}\n\n請預備心服事！`);
-      }
-      function copyBand(date, leader, piano, drums) {
-        execCopy(`🎸 【敬拜團服事】\n日期：${date}\n主領：${leader}\n鋼琴：${piano}\n鼓手：${drums}\n\n請預備心服事！`);
-      }
-      function copySound(date, sound, ppt) {
-        execCopy(`🎚️ 【音控服事】\n日期：${date}\n音控：${sound}\nPPT：${ppt}\n\n請預備心服事！`);
       }
 
       // --- 滾動定位修復 ---
